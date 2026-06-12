@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "project-management-cli"
+version = "0.1.0"
+description = "Project Management CLI"
+readme = "README.md"
+authors = [{name = "favourkendi"}]
+requires-python = ">=3.10"
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.setuptools]
+packages = {find = {where = ["."], include = ["project_manager"]}}

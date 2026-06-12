@@ -1,0 +1,17 @@
+{
+    "users": [
+        {
+            "name": "TestUser",
+            "projects": []
+        },
+        {
+            "name": "Kendi",
+            "projects": [
+                {
+                    "title": "CLI Project",
+                    "tasks": []
+                }
+            ]
+        }
+    ]
+}
