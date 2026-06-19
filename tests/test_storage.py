@@ -1,76 +1,28 @@
 import json
 from pathlib import Path
-import pytest
 
-from project_manager.services.storage import Storage, DatabaseCorruptionError
-from project_manager.models.user import User
-from project_manager.models.project import Project
-from project_manager.models.task import Task
+from project_tracker.utils import storage
 
 
-def test_1_database_created_automatically(tmp_path: Path):
-    """Test 1: Deleting the file or starting fresh creates database automatically."""
+def test_save_and_load_roundtrip(tmp_path, monkeypatch):
     db_file = tmp_path / "database.json"
-    
-    assert not db_file.exists()
-    storage = Storage(db_file)
-    assert db_file.exists()
-    
-    users = storage.load_users()
-    assert users == []
+    monkeypatch.setattr(storage, "DATA_PATH", db_file)
+
+    data = storage.load_data()
+    assert data["users"] == {}
+
+    data["users"]["1"] = {"id": 1, "name": "A", "email": "a@example.com", "projects": []}
+    storage.save_data(data)
+
+    loaded = storage.load_data()
+    assert loaded["users"]["1"]["email"] == "a@example.com"
 
 
-def test_2_add_save_and_reload_user(tmp_path: Path):
-    """Test 2: Save a user, reload it, and verify the data matches."""
+def test_load_malformed_json(tmp_path, monkeypatch):
     db_file = tmp_path / "database.json"
-    storage = Storage(db_file)
-    
-    original_user = User(name="Emmanuel", email="emmanuel@example.com")
-    storage.save_users([original_user])
-    
-    reloaded_storage = Storage(db_file)
-    loaded_users = reloaded_storage.load_users()
-    
-    assert len(loaded_users) == 1
-    assert loaded_users[0].name == original_user.name
-    assert loaded_users[0].email == original_user.email
+    monkeypatch.setattr(storage, "DATA_PATH", db_file)
 
+    db_file.write_text("{ bad json", encoding="utf-8")
+    loaded = storage.load_data()
+    assert loaded == {"users": {}, "projects": {}, "tasks": {}}
 
-def test_3_nested_reconstruction(tmp_path: Path):
-    """Test 3: Verify deep structures reconstruct into Objects, not dicts."""
-    db_file = tmp_path / "database.json"
-    storage = Storage(db_file)
-    
-    task = Task(title="Build CLI", completed=False, contributors=["Emmanuel"])
-    project = Project(title="Python Tool", tasks=[task])
-    user = User(name="Emmanuel", projects=[project])
-    
-    storage.save_users([user])
-    
-    loaded_users = storage.load_users()
-    loaded_user = loaded_users[0]
-    
-    assert isinstance(loaded_user, User)
-    
-    loaded_project = loaded_user.projects[0]
-    assert isinstance(loaded_project, Project)
-    
-    loaded_task = loaded_project.tasks[0]
-    assert isinstance(loaded_task, Task)
-    
-    assert loaded_task.title == "Build CLI"
-    assert any(contributor.name == "Emmanuel" for contributor in loaded_task.contributors)
-
-
-def test_4_corrupt_json_raises_custom_exception(tmp_path: Path):
-    """Test 4: Corrupt JSON triggers custom application exception, not raw traceback."""
-    db_file = tmp_path / "database.json"
-    storage = Storage(db_file)
-    
-    with open(db_file, "w", encoding="utf-8") as f:
-        f.write("{ invalid")
-        
-    with pytest.raises(DatabaseCorruptionError) as exc_info:
-        storage.load_users()
-        
-    assert "contains malformed JSON" in str(exc_info.value)
